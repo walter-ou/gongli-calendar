@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="工历">
+  <meta name="theme-color" content="#F2F2F7">
+  <meta name="description" content="安装工月历排班，按公司颜色区分工作">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>工历</title>
+  <style>
+    :root {
+      --header-h: 52px;
+      --dow-h: 28px;
+      --legend-h: 48px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --today-red: #FF3B30;
+      --line: #E5E5EA;
+      --text: #1C1C1E;
+      --muted: #8E8E93;
+      --bg: #F2F2F7;
+      --card: #FFFFFF;
+      --accent: #E67E22;
+      --blue: #007AFF;
+      --date-h: 24px;
+      --bar-h: 16px;
+      --bar-gap: 2px;
+      --overflow-h: 14px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    button, input, textarea, select { font-family: inherit; }
+    button {
+      appearance: none;
+      border: 0;
+      background: none;
+      color: inherit;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+    input, textarea { user-select: text; -webkit-user-select: text; font-size: 16px; }
+
+    #app {
+      height: 100dvh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-top: var(--safe-top);
+      padding-bottom: 0;
+      background: var(--bg);
+    }
+
+    header.app-header {
+      height: var(--header-h);
+      flex: 0 0 var(--header-h);
+      display: flex;
+      align-items: center;
+      padding: 0 8px 0 4px;
+      gap: 4px;
+      background: var(--bg);
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+      border-radius: 10px;
+      flex: 0 0 40px;
+    }
+    .icon-btn:active { background: rgba(0,0,0,.06); }
+    .icon-btn svg { width: 22px; height: 22px; }
+    .nav-title {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+    }
+    .nav-title h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    .nav-title .chevron {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+      font-size: 28px;
+      font-weight: 300;
+      line-height: 1;
+      border-radius: 8px;
+    }
+    .nav-title .chevron:active { background: rgba(0,0,0,.06); }
+    #btn-today {
+      flex: 0 0 auto;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 16px;
+      background: #fff;
+      color: var(--today-red);
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+    }
+    #btn-today:active { background: #f2f2f2; }
+    #btn-today.hidden { visibility: hidden; pointer-events: none; }
+
+    .dow {
+      flex: 0 0 var(--dow-h);
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      align-items: center;
+      background: var(--bg);
+      padding: 0 0 2px;
+    }
+    .dow span {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    .dow span.sun { color: #E05A5A; }
+
+    #calendar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      touch-action: pan-y;
+    }
+    .week {
+      flex: 1;
+      position: relative;
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      min-height: 0;
+    }
+    .week:last-child { border-bottom: 0; }
+    .week-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      width: 100%;
+      height: 100%;
+    }
+    .day-cell {
+      border-right: 1px solid var(--line);
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .day-cell:last-child { border-right: 0; }
+    .day-cell.outside { background: #FAFAFA; }
+    .day-cell.selected { background: #F0F4FF; }
+    .day-cell.outside.selected { background: #F3F5FA; }
+    .day-num {
+      width: 22px;
+      height: 22px;
+      margin: 3px auto 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 50%;
+      line-height: 1;
+    }
+    .day-num.today {
+      background: var(--today-red);
+      color: #fff !important;
+      font-weight: 700;
+    }
+    .day-num.outside { color: #C7C7CC; font-weight: 500; }
+    .day-num.sunday:not(.today):not(.outside) { color: #E05A5A; }
+    .day-overflow {
+      position: absolute;
+      bottom: 1px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      line-height: var(--overflow-h);
+      pointer-events: none;
+    }
+    .week-events {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .event-bar {
+      position: absolute;
+      height: var(--bar-h);
+      padding: 0 3px;
+      font-size: 10px;
+      font-weight: 650;
+      line-height: var(--bar-h);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: auto;
+      letter-spacing: -0.04em;
+    }
+    .event-bar:active { filter: brightness(0.92); }
+
+    #legend {
+      flex: 0 0 auto;
+      min-height: var(--legend-h);
+      padding: 8px 72px 8px 10px;
+      padding-bottom: calc(8px + var(--safe-bottom));
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      background: var(--bg);
+      scrollbar-width: none;
+    }
+    #legend::-webkit-scrollbar { display: none; }
+    .legend-chip {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 10px 0 8px;
+      border-radius: 15px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .legend-chip:active { background: #f2f2f2; }
+    .legend-chip.off {
+      color: var(--muted);
+      background: transparent;
+      box-shadow: 0 0 0 1px var(--line);
+    }
+    .legend-chip.off .dot { opacity: 0.35; }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: 0 0 10px;
+    }
+
+    #fab {
+      position: fixed;
+      right: 16px;
+      bottom: calc(var(--legend-h) + var(--safe-bottom) + 4px);
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 32px;
+      font-weight: 300;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 16px rgba(230, 126, 34, 0.45);
+      z-index: 20;
+    }
+    #fab:active { transform: scale(0.96); filter: brightness(0.95); }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(90px + var(--safe-bottom));
+      transform: translateX(-50%) translateY(12px);
+      max-width: calc(100% - 40px);
+      background: rgba(28,28,30,.92);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 10px 14px;
+      border-radius: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 80;
+      text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #install-tip {
+      display: none;
+      flex: 0 0 auto;
+      margin: 0 12px 8px;
+      padding: 10px 12px;
+      background: #fff;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #3A3A3C;
+      line-height: 1.45;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.05);
+      position: relative;
+    }
+    #install-tip.show { display: block; }
+    #install-tip b { color: var(--text); }
+    #install-tip .close-tip {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 28px;
+      height: 28px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .backdrop.show { opacity: 1; pointer-events: auto; }
+
+    .sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 92dvh;
+      background: var(--bg);
+      border-radius: 16px 16px 0 0;
+      z-index: 50;
+      transform: translateY(110%);
+      transition: transform .32s cubic-bezier(.2,.8,.2,1);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: calc(20px + var(--safe-bottom));
+    }
+    .sheet.show { transform: translateY(0); }
+    .sheet-handle {
+      width: 36px;
+      height: 5px;
+      border-radius: 3px;
+      background: #D1D1D6;
+      margin: 8px auto 4px;
+    }
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      padding: 4px 16px 12px;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 2;
+    }
+    .sheet-head h2 {
+      flex: 1;
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .sheet-head .side {
+      min-width: 56px;
+      font-size: 16px;
+      color: var(--blue);
+      font-weight: 500;
+    }
+    .sheet-head .side.right { text-align: right; }
+    .sheet-head .side.danger { color: var(--today-red); }
+    .sheet-head .side:disabled { color: var(--muted); }
+
+    .group {
+      background: #fff;
+      margin: 0 16px 16px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      min-height: 48px;
+      padding: 8px 16px;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row .label {
+      flex: 0 0 78px;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .row input[type="text"],
+    .row input[type="date"],
+    .row textarea {
+      flex: 1;
+      border: 0;
+      outline: none;
+      background: transparent;
+      min-width: 0;
+      color: var(--text);
+    }
+    .row textarea {
+      min-height: 72px;
+      resize: vertical;
+      padding: 8px 0;
+      line-height: 1.4;
+    }
+    .row-btn {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      min-height: 48px;
+      padding: 8px 16px;
+      gap: 12px;
+      font-size: 16px;
+    }
+    .row-btn:active { background: #f2f2f7; }
+    .row-btn .chev { margin-left: auto; color: #C7C7CC; font-size: 18px; }
+    .row-btn .sub { margin-left: auto; color: var(--muted); font-size: 15px; }
+    .link-btn {
+      display: block;
+      width: calc(100% - 32px);
+      margin: 0 16px 12px;
+      min-height: 48px;
+      border-radius: 12px;
+      background: #fff;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .link-btn:active { background: #f2f2f7; }
+    .link-btn.danger { color: var(--today-red); }
+    .group .row-btn + .row-btn,
+    .group .company-item + .company-item,
+    .group .event-item + .event-item,
+    .group .filter-row + .filter-row { border-top: 1px solid var(--line); }
+
+    .event-item {
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      text-align: left;
+      min-height: 56px;
+      background: #fff;
+    }
+    .event-item:active { background: #f2f2f7; }
+    .event-item .stripe {
+      width: 6px;
+      flex: 0 0 6px;
+    }
+    .event-item .body {
+      flex: 1;
+      padding: 10px 16px;
+      min-width: 0;
+    }
+    .event-item .title {
+      font-size: 16px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .event-item .meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      padding: 28px 16px;
+    }
+
+    .company-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      text-align: left;
+      min-height: 52px;
+      padding: 8px 16px;
+      gap: 12px;
+      background: #fff;
+    }
+    .company-item:active { background: #f2f2f7; }
+    .company-item .name { flex: 1; font-size: 16px; font-weight: 600; }
+    .company-item .chev { color: #C7C7CC; }
+
+    .color-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px 16px;
+    }
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+      position: relative;
+    }
+    .color-swatch.selected::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+    }
+    .color-custom {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      overflow: hidden;
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+      background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+    }
+    .color-custom input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .hint {
+      margin: 0 20px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .confirm {
+      position: fixed;
+      left: 24px;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%) scale(.96);
+      background: #fff;
+      border-radius: 14px;
+      z-index: 70;
+      padding: 22px 20px 16px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+    .confirm.show { opacity: 1; transform: translateY(-50%) scale(1); pointer-events: auto; }
+    .confirm h3 { margin: 0 0 8px; font-size: 17px; }
+    .confirm p { margin: 0 0 16px; font-size: 14px; color: #3A3A3C; line-height: 1.45; }
+    .confirm .actions { display: flex; gap: 10px; }
+    .confirm .actions button {
+      flex: 1;
+      height: 44px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      background: var(--bg);
+    }
+    .confirm .actions button.primary { background: var(--blue); color: #fff; }
+    .confirm .actions button.danger { background: var(--today-red); color: #fff; }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      gap: 12px;
+      background: #fff;
+    }
+    .filter-row .name { flex: 1; font-size: 16px; }
+    .toggle {
+      width: 51px;
+      height: 31px;
+      border-radius: 16px;
+      background: #E9E9EB;
+      position: relative;
+      transition: background .2s;
+      flex: 0 0 51px;
+    }
+    .toggle.on { background: #34C759; }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.25);
+      transition: transform .2s;
+    }
+    .toggle.on::after { transform: translateX(20px); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <button class="icon-btn" id="btn-menu" aria-label="菜单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="6" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+      <div class="nav-title">
+        <button class="chevron" id="btn-prev" aria-label="上个月">‹</button>
+        <h1 id="month-label">2026年11月</h1>
+        <button class="chevron" id="btn-next" aria-label="下个月">›</button>
+      </div>
+      <button id="btn-today" type="button">今天</button>
+    </header>
+    <div class="dow" id="dow"></div>
+    <div id="calendar" aria-label="月历"></div>
+    <div id="install-tip">
+      <button class="close-tip" id="btn-close-tip" aria-label="关闭">×</button>
+      在 Safari 点底部分享按钮，选择<b>「添加到主屏幕」</b>，即可像 App 一样使用。数据保存在本机。
+    </div>
+    <div id="legend"></div>
+  </div>
+  <button id="fab" aria-label="添加工作">+</button>
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet"></div>
+  <div class="backdrop" id="confirm-backdrop"></div>
+  <div class="confirm" id="confirm"></div>
+  <div id="toast"></div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const STORAGE_KEY = "gongli-v1";
+    const TIP_KEY = "gongli-tip-dismissed";
+    const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+    const WEEKDAYS_FULL = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+    const PRESET_COLORS = [
+      "#E67E22", "#2F80ED", "#27AE60", "#E84393", "#9B59B6",
+      "#E74C3C", "#16A085", "#D35400", "#2980B9", "#8E44AD",
+      "#F1C40F", "#2C3E50", "#1ABC9C", "#C0392B", "#7F8C8D"
+    ];
+    const DEFAULT_COMPANIES = [
+      { id: "c-ikea", name: "IKEA", color: "#E67E22" },
+      { id: "c-blue", name: "蓝标", color: "#2F80ED" },
+      { id: "c-green", name: "绿叶", color: "#27AE60" },
+      { id: "c-pink", name: "粉红", color: "#E84393" },
+      { id: "c-purple", name: "紫金", color: "#9B59B6" }
+    ];
+
+    const el = {
+      calendar: document.getElementById("calendar"),
+      legend: document.getElementById("legend"),
+      monthLabel: document.getElementById("month-label"),
+      btnToday: document.getElementById("btn-today"),
+      dow: document.getElementById("dow"),
+      sheet: document.getElementById("sheet"),
+      backdrop: document.getElementById("backdrop"),
+      toast: document.getElementById("toast"),
+      installTip: document.getElementById("install-tip"),
+      importFile: document.getElementById("import-file"),
+      confirm: document.getElementById("confirm"),
+      confirmBackdrop: document.getElementById("confirm-backdrop"),
+      fab: document.getElementById("fab")
+    };
+
+    let data = loadData();
+    let viewYear, viewMonth; // month is 0-based
+    let selectedDate = null; // YYYY-MM-DD
+    let sheetOpen = false;
+    let confirmCb = null;
+    let toastTimer = null;
+
+    const now = new Date();
+    viewYear = now.getFullYear();
+    viewMonth = now.getMonth();
+
+    /* ------------ storage ------------ */
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return {
+            companies: DEFAULT_COMPANIES.map((c) => Object.assign({}, c)),
+            events: [],
+            hiddenCompanyIds: []
+          };
+        }
+        const parsed = JSON.parse(raw);
+        const companies = Array.isArray(parsed.companies) ? parsed.companies.filter(validCompany) : [];
+        return {
+          companies: companies.length ? companies : DEFAULT_COMPANIES.map((c) => Object.assign({}, c)),
+          events: Array.isArray(parsed.events) ? parsed.events.filter(validEvent) : [],
+          hiddenCompanyIds: Array.isArray(parsed.hiddenCompanyIds) ? parsed.hiddenCompanyIds : []
+        };
+      } catch (err) {
+        return {
+          companies: DEFAULT_COMPANIES.map((c) => Object.assign({}, c)),
+          events: [],
+          hiddenCompanyIds: []
+        };
+      }
+    }
+    function validCompany(c) {
+      return c && typeof c.id === "string" && typeof c.name === "string" && typeof c.color === "string";
+    }
+    function validEvent(e) {
+      return e && typeof e.id === "string" && typeof e.title === "string" &&
+        typeof e.companyId === "string" && isISODate(e.start) && isISODate(e.end);
+    }
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    function uid(prefix) {
+      return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    /* ------------ dates ------------ */
+    function isISODate(s) {
+      return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    }
+    function toISODate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + day;
+    }
+    function parseISODate(s) {
+      const p = s.split("-").map(Number);
+      return new Date(p[0], p[1] - 1, p[2]);
+    }
+    function addDaysISO(s, n) {
+      const d = parseISODate(s);
+      d.setDate(d.getDate() + n);
+      return toISODate(d);
+    }
+    function daysBetween(a, b) {
+      return Math.round((parseISODate(b) - parseISODate(a)) / 86400000);
+    }
+    function todayISO() {
+      return toISODate(new Date());
+    }
+    function isSameMonth(iso, y, m) {
+      const d = parseISODate(iso);
+      return d.getFullYear() === y && d.getMonth() === m;
+    }
+    function formatLong(iso) {
+      const d = parseISODate(iso);
+      return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 " + WEEKDAYS_FULL[d.getDay()];
+    }
+    function formatShort(iso) {
+      const d = parseISODate(iso);
+      return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+    }
+    function buildGrid(year, month) {
+      const first = new Date(year, month, 1);
+      const last = new Date(year, month + 1, 0);
+      const start = new Date(first);
+      start.setDate(1 - first.getDay());
+      const end = new Date(last);
+      end.setDate(last.getDate() + (6 - last.getDay()));
+      const days = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        days.push(new Date(d.getTime()));
+      }
+      return days;
+    }
+
+    /* ------------ helpers ------------ */
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+      });
+    }
+    function companyById(id) {
+      for (let i = 0; i < data.companies.length; i++) {
+        if (data.companies[i].id === id) return data.companies[i];
+      }
+      return null;
+    }
+    function textColor(bg) {
+      let hex = String(bg || "").replace("#", "");
+      if (hex.length === 3) hex = hex.split("").map(function (c) { return c + c; }).join("");
+      if (hex.length !== 6) return "#fff";
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+      return yiq > 165 ? "#1C1C1E" : "#FFFFFF";
+    }
+    function visibleEvents() {
+      const hidden = {};
+      data.hiddenCompanyIds.forEach(function (id) { hidden[id] = true; });
+      return data.events.filter(function (e) { return !hidden[e.companyId]; });
+    }
+
+    /* ------------ render ------------ */
+    function render() {
+      el.monthLabel.textContent = viewYear + "年" + (viewMonth + 1) + "月";
+      const t = new Date();
+      const onTodayMonth = viewYear === t.getFullYear() && viewMonth === t.getMonth();
+      el.btnToday.classList.toggle("hidden", onTodayMonth);
+      renderCalendar();
+      renderLegend();
+    }
+
+    function renderCalendar() {
+      const days = buildGrid(viewYear, viewMonth);
+      const weeks = [];
+      for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+      const today = todayISO();
+      let html = "";
+      weeks.forEach(function (week, wi) {
+        html += '<div class="week" data-week="' + wi + '">';
+        html += '<div class="week-days">';
+        week.forEach(function (d) {
+          const iso = toISODate(d);
+          const outside = d.getMonth() !== viewMonth;
+          const cls = ["day-cell"];
+          if (outside) cls.push("outside");
+          if (selectedDate === iso) cls.push("selected");
+          const numCls = ["day-num"];
+          if (iso === today) numCls.push("today");
+          if (outside) numCls.push("outside");
+          if (d.getDay() === 0) numCls.push("sunday");
+          html += '<div class="' + cls.join(" ") + '" data-date="' + iso + '">';
+          html += '<div class="' + numCls.join(" ") + '">' + d.getDate() + "</div>";
+          html += '<div class="day-overflow" data-overflow="' + iso + '"></div>';
+          html += "</div>";
+        });
+        html += "</div>";
+        html += '<div class="week-events" data-events-week="' + wi + '"></div>';
+        html += "</div>";
+      });
+      el.calendar.innerHTML = html;
+      layoutEventBars();
+    }
+
+    function layoutEventBars() {
+      const weeks = el.calendar.querySelectorAll(".week");
+      if (!weeks.length) return;
+      const rowH = weeks[0].clientHeight;
+      const dateH = 24;
+      const barH = 16;
+      const gap = 2;
+      const overflowH = 14;
+      const available = rowH - dateH - overflowH - 2;
+      const maxLanes = Math.max(1, Math.floor((available + gap) / (barH + gap)));
+      const events = visibleEvents().slice().sort(function (a, b) {
+        if (a.start !== b.start) return a.start < b.start ? -1 : 1;
+        const da = daysBetween(a.start, a.end);
+        const db = daysBetween(b.start, b.end);
+        if (da !== db) return db - da;
+        return (a.title || "").localeCompare(b.title || "", "zh");
+      });
+
+      weeks.forEach(function (weekEl) {
+        const dayCells = weekEl.querySelectorAll(".day-cell");
+        const weekStart = dayCells[0].getAttribute("data-date");
+        const weekEnd = dayCells[6].getAttribute("data-date");
+        const weekEvents = events.filter(function (e) {
+          return e.start <= weekEnd && e.end >= weekStart;
+        });
+        const occupied = [];
+        const placed = [];
+        weekEvents.forEach(function (ev) {
+          const startDay = Math.max(0, daysBetween(weekStart, ev.start));
+          const endDay = Math.min(6, daysBetween(weekStart, ev.end));
+          let lane = 0;
+          for (;;) {
+            if (!occupied[lane]) occupied[lane] = [0, 0, 0, 0, 0, 0, 0];
+            let ok = true;
+            for (let d = startDay; d <= endDay; d++) {
+              if (occupied[lane][d]) { ok = false; break; }
+            }
+            if (ok) {
+              for (let d = startDay; d <= endDay; d++) occupied[lane][d] = 1;
+              placed.push({
+                ev: ev,
+                lane: lane,
+                startDay: startDay,
+                endDay: endDay,
+                startsThisWeek: ev.start >= weekStart,
+                endsThisWeek: ev.end <= weekEnd
+              });
+              break;
+            }
+            lane++;
+          }
+        });
+
+        const overflowCount = [0, 0, 0, 0, 0, 0, 0];
+        const layer = weekEl.querySelector(".week-events");
+        let bars = "";
+        placed.forEach(function (p) {
+          if (p.lane >= maxLanes) {
+            for (let d = p.startDay; d <= p.endDay; d++) overflowCount[d]++;
+            return;
+          }
+          const co = companyById(p.ev.companyId);
+          const color = co ? co.color : "#8E8E93";
+          const insetL = p.startsThisWeek ? 2 : 0;
+          const insetR = p.endsThisWeek ? 2 : 0;
+          const left = "calc(" + ((p.startDay / 7) * 100) + "% + " + insetL + "px)";
+          const width = "calc(" + (((p.endDay - p.startDay + 1) / 7) * 100) + "% - " + (insetL + insetR) + "px)";
+          const top = dateH + p.lane * (barH + gap);
+          const radiusL = p.startsThisWeek ? "3px" : "0";
+          const radiusR = p.endsThisWeek ? "3px" : "0";
+          const title = p.ev.title;
+          bars += '<div class="event-bar" data-id="' + escapeHtml(p.ev.id) + '" style="' +
+            "left:" + left + ";width:" + width + ";top:" + top + "px;" +
+            "background:" + color + ";color:" + textColor(color) + ";" +
+            "border-radius:" + radiusL + " " + radiusR + " " + radiusR + " " + radiusL +
+            ';" title="' + escapeHtml(p.ev.title) + '">' + escapeHtml(title) + "</div>";
+        });
+        layer.innerHTML = bars;
+
+        dayCells.forEach(function (cell, i) {
+          const ov = cell.querySelector(".day-overflow");
+          if (overflowCount[i] > 0) ov.textContent = "+" + overflowCount[i];
+          else ov.textContent = "";
+        });
+      });
+    }
+
+    function renderLegend() {
+      if (!data.companies.length) {
+        el.legend.innerHTML = '<span class="empty" style="padding:0">请先添加公司</span>';
+        return;
+      }
+      el.legend.innerHTML = data.companies.map(function (c) {
+        const off = data.hiddenCompanyIds.indexOf(c.id) !== -1;
+        return '<button type="button" class="legend-chip' + (off ? " off" : "") + '" data-company="' +
+          escapeHtml(c.id) + '"><span class="dot" style="background:' + escapeHtml(c.color) +
+          '"></span>' + escapeHtml(c.name) + "</button>";
+      }).join("");
+    }
+
+    /* ------------ navigation ------------ */
+    function prevMonth() {
+      if (viewMonth === 0) { viewYear--; viewMonth = 11; }
+      else viewMonth--;
+      render();
+    }
+    function nextMonth() {
+      if (viewMonth === 11) { viewYear++; viewMonth = 0; }
+      else viewMonth++;
+      render();
+    }
+    function goToday() {
+      const t = new Date();
+      viewYear = t.getFullYear();
+      viewMonth = t.getMonth();
+      selectedDate = todayISO();
+      render();
+    }
+
+    /* ------------ sheets ------------ */
+    function openSheet(html) {
+      el.sheet.innerHTML = html;
+      el.sheet.scrollTop = 0;
+      el.backdrop.classList.add("show");
+      el.sheet.classList.add("show");
+      sheetOpen = true;
+    }
+    function closeSheet() {
+      el.backdrop.classList.remove("show");
+      el.sheet.classList.remove("show");
+      sheetOpen = false;
+    }
+
+    function openDayList(iso) {
+      selectedDate = iso;
+      render();
+      const hidden = {};
+      data.hiddenCompanyIds.forEach(function (id) { hidden[id] = true; });
+      const list = data.events
+        .filter(function (e) { return e.start <= iso && e.end >= iso && !hidden[e.companyId]; })
+        .sort(function (a, b) {
+          if (a.start !== b.start) return a.start < b.start ? -1 : 1;
+          return (a.title || "").localeCompare(b.title || "", "zh");
+        });
+      let items = "";
+      if (!list.length) {
+        items = '<div class="empty">这一天还没有工作</div>';
+      } else {
+        items = '<div class="group">' + list.map(function (e) {
+          const co = companyById(e.companyId);
+          const color = co ? co.color : "#8E8E93";
+          const range = e.start === e.end ? "" : formatShort(e.start) + " – " + formatShort(e.end);
+          const meta = [co ? co.name : "未指定公司", range, e.note].filter(Boolean).join(" · ");
+          return '<button type="button" class="event-item" data-edit-event="' + escapeHtml(e.id) + '">' +
+            '<span class="stripe" style="background:' + escapeHtml(color) + '"></span>' +
+            '<span class="body"><div class="title">' + escapeHtml(e.title) + "</div>" +
+            '<div class="meta">' + escapeHtml(meta) + "</div></span></button>";
+        }).join("") + "</div>";
+      }
+      openSheet(
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-head">' +
+          '<button type="button" class="side" data-close>关闭</button>' +
+          "<h2>" + formatLong(iso) + "</h2>" +
+          '<span class="side right"></span>' +
+        "</div>" +
+        items +
+        '<button type="button" class="link-btn" data-add-on="' + iso + '">添加工作</button>'
+      );
+    }
+
+    function openEventForm(opts) {
+      opts = opts || {};
+      const ev = opts.event || null;
+      const start = ev ? ev.start : (opts.date || todayISO());
+      const end = ev ? ev.end : start;
+      const title = ev ? ev.title : "";
+      const note = ev ? (ev.note || "") : "";
+      const companyId = ev ? ev.companyId : (data.companies[0] ? data.companies[0].id : "");
+      if (!data.companies.length) {
+        toast("请先在菜单里添加公司");
+        openCompanyManager();
+        return;
+      }
+      const companyOptions = data.companies.map(function (c) {
+        const sel = c.id === companyId ? " selected" : "";
+        return '<option value="' + escapeHtml(c.id) + '"' + sel + ">" + escapeHtml(c.name) + "</option>";
+      }).join("");
+      const delBtn = ev ? '<button type="button" class="link-btn danger" data-delete-event="' + escapeHtml(ev.id) + '">删除工作</button>' : "";
+      openSheet(
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-head">' +
+          '<button type="button" class="side" data-close>取消</button>' +
+          "<h2>" + (ev ? "编辑工作" : "添加工作") + "</h2>" +
+          '<button type="button" class="side right" id="btn-save-event">保存</button>' +
+        "</div>" +
+        '<div class="group">' +
+          '<label class="row"><span class="label">标题</span>' +
+            '<input type="text" id="f-title" maxlength="80" placeholder="例如 Van-2400、Danny off" value="' + escapeHtml(title) + '">' +
+          "</label>" +
+          '<label class="row"><span class="label">公司</span>' +
+            '<select id="f-company" style="flex:1;border:0;background:transparent;font-size:16px;height:32px;min-width:0">' +
+              companyOptions +
+            "</select>" +
+          "</label>" +
+          '<label class="row"><span class="label">开始</span>' +
+            '<input type="date" id="f-start" value="' + start + '">' +
+          "</label>" +
+          '<label class="row"><span class="label">结束</span>' +
+            '<input type="date" id="f-end" value="' + end + '">' +
+          "</label>" +
+          '<label class="row" style="align-items:flex-start"><span class="label" style="padding-top:10px">备注/地址</span>' +
+            '<textarea id="f-note" maxlength="400" placeholder="可选">' + escapeHtml(note) + "</textarea>" +
+          "</label>" +
+        "</div>" +
+        delBtn
+      );
+      const titleInput = document.getElementById("f-title");
+      const startInput = document.getElementById("f-start");
+      const endInput = document.getElementById("f-end");
+      startInput.addEventListener("change", function () {
+        if (endInput.value && endInput.value < startInput.value) endInput.value = startInput.value;
+      });
+      document.getElementById("btn-save-event").addEventListener("click", function () {
+        const t = titleInput.value.trim();
+        if (!t) { toast("请填写标题"); titleInput.focus(); return; }
+        const s = startInput.value;
+        let en = endInput.value || s;
+        if (!isISODate(s)) { toast("请选择开始日期"); return; }
+        if (!isISODate(en)) { toast("请选择结束日期"); return; }
+        if (en < s) en = s;
+        const cid = document.getElementById("f-company").value;
+        if (!companyById(cid)) { toast("请选择公司"); return; }
+        const noteVal = document.getElementById("f-note").value.trim();
+        if (ev) {
+          ev.title = t;
+          ev.companyId = cid;
+          ev.start = s;
+          ev.end = en;
+          ev.note = noteVal;
+        } else {
+          data.events.push({
+            id: uid("e-"),
+            title: t,
+            companyId: cid,
+            start: s,
+            end: en,
+            note: noteVal
+          });
+        }
+        saveData();
+        selectedDate = s;
+        const sd = parseISODate(s);
+        viewYear = sd.getFullYear();
+        viewMonth = sd.getMonth();
+        closeSheet();
+        render();
+      });
+      setTimeout(function () { titleInput.focus(); }, 320);
+    }
+
+    function openSettings() {
+      openSheet(
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-head">' +
+          '<button type="button" class="side" data-close>关闭</button>' +
+          "<h2>菜单</h2>" +
+          '<span class="side right"></span>' +
+        "</div>" +
+        '<div class="group">' +
+          '<button type="button" class="row-btn" id="btn-companies"><span class="dot" style="background:#E67E22"></span>公司管理<span class="chev">›</span></button>' +
+          '<button type="button" class="row-btn" id="btn-filter"><span class="dot" style="background:#2F80ED"></span>按公司筛选<span class="chev">›</span></button>' +
+        "</div>" +
+        '<div class="group">' +
+          '<button type="button" class="row-btn" id="btn-export">导出备份<span class="sub">JSON</span></button>' +
+          '<button type="button" class="row-btn" id="btn-import">导入备份<span class="chev">›</span></button>' +
+        "</div>" +
+        '<p class="hint">数据只保存在这台手机的浏览器里，不会上传。换手机或清缓存前，请先导出备份。上面的 IKEA、蓝标等是示例公司，可随时改名或删除。</p>' +
+        '<p class="hint">添加到主屏幕：用 Safari 打开本页 → 点底部分享 →「添加到主屏幕」。</p>'
+      );
+    }
+
+    function openCompanyManager() {
+      const list = data.companies.length
+        ? '<div class="group">' + data.companies.map(function (c) {
+            return '<button type="button" class="company-item" data-edit-company="' + escapeHtml(c.id) + '">' +
+              '<span class="dot" style="width:16px;height:16px;flex-basis:16px;background:' + escapeHtml(c.color) + '"></span>' +
+              '<span class="name">' + escapeHtml(c.name) + '</span><span class="chev">›</span></button>';
+          }).join("") + "</div>"
+        : '<div class="empty">还没有公司</div>';
+      openSheet(
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-head">' +
+          '<button type="button" class="side" data-back-settings>返回</button>' +
+          "<h2>公司</h2>" +
+          '<span class="side right"></span>' +
+        "</div>" +
+        '<p class="hint">不同颜色代表不同公司。点一项可修改，也可删除后重新添加自己的公司。</p>' +
+        list +
+        '<button type="button" class="link-btn" id="btn-add-company">添加公司</button>'
+      );
+    }
+
+    function openCompanyForm(co) {
+      const name = co ? co.name : "";
+      const color = co ? co.color : PRESET_COLORS[data.companies.length % PRESET_COLORS.length];
+      const delBtn = co ? '<button type="button" class="link-btn danger" data-delete-company="' + escapeHtml(co.id) + '">删除公司</button>' : "";
+      const swatches = PRESET_COLORS.map(function (c) {
+        return '<button type="button" class="color-swatch' + (c.toLowerCase() === color.toLowerCase() ? " selected" : "") +
+          '" data-color="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>';
+      }).join("");
+      openSheet(
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-head">' +
+          '<button type="button" class="side" data-back-companies>取消</button>' +
+          "<h2>" + (co ? "编辑公司" : "添加公司") + "</h2>" +
+          '<button type="button" class="side right" id="btn-save-company">保存</button>' +
+        "</div>" +
+        '<div class="group">' +
+          '<label class="row"><span class="label">名称</span>' +
+            '<input type="text" id="c-name" maxlength="30" placeholder="公司名称" value="' + escapeHtml(name) + '">' +
+          "</label>" +
+          '<div class="row" style="display:block;padding:10px 16px 4px"><span class="label">颜色</span></div>' +
+          '<div class="color-grid" id="color-grid">' + swatches +
+            '<label class="color-custom" title="自定义颜色"><input type="color" id="c-color-custom" value="' + escapeHtml(color) + '"></label>' +
+          "</div>" +
+          '<input type="hidden" id="c-color" value="' + escapeHtml(color) + '">' +
+        "</div>" +
+        delBtn
+      );
+      const colorInput = document.getElementById("c-color");
+      document.getElementById("color-grid").addEventListener("click", function (e) {
+        const sw = e.target.closest(".color-swatch");
+        if (!sw) return;
+        colorInput.value = sw.getAttribute("data-color");
+        document.querySelectorAll(".color-swatch").forEach(function (s) { s.classList.remove("selected"); });
+        sw.classList.add("selected");
+      });
+      document.getElementById("c-color-custom").addEventListener("input", function (e) {
+        colorInput.value = e.target.value;
+        document.querySelectorAll(".color-swatch").forEach(function (s) { s.classList.remove("selected"); });
+      });
+      document.getElementById("btn-save-company").addEventListener("click", function () {
+        const n = document.getElementById("c-name").value.trim();
+        if (!n) { toast("请填写公司名称"); return; }
+        const col = colorInput.value || "#E67E22";
+        if (co) {
+          co.name = n;
+          co.color = col;
+        } else {
+          data.companies.push({ id: uid("c-"), name: n, color: col });
+        }
+        saveData();
+        openCompanyManager();
+        renderLegend();
+        renderCalendar();
+      });
+      setTimeout(function () { document.getElementById("c-name").focus(); }, 320);
+    }
+
+    function openFilter() {
+      const rows = data.companies.map(function (c) {
+        const on = data.hiddenCompanyIds.indexOf(c.id) === -1;
+        return '<button type="button" class="filter-row" data-toggle-company="' + escapeHtml(c.id) + '" style="border-bottom:1px solid var(--line)">' +
+          '<span class="dot" style="width:14px;height:14px;flex-basis:14px;background:' + escapeHtml(c.color) + '"></span>' +
+          '<span class="name">' + escapeHtml(c.name) + "</span>" +
+          '<span class="toggle' + (on ? " on" : "") + '"></span></button>';
+      }).join("");
+      openSheet(
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-head">' +
+          '<button type="button" class="side" data-back-settings>返回</button>' +
+          "<h2>按公司筛选</h2>" +
+          '<span class="side right"></span>' +
+        "</div>" +
+        '<p class="hint">关掉某家公司后，月历里不再显示它的工作。点底部色块也可以快速筛选。</p>' +
+        '<div class="group" style="padding:0;overflow:hidden">' + (rows || '<div class="empty">还没有公司</div>') + "</div>" +
+        (data.companies.length
+          ? '<button type="button" class="link-btn" id="btn-show-all">全部显示</button>'
+          : "")
+      );
+    }
+
+    function deleteEvent(id) {
+      const ev = data.events.filter(function (e) { return e.id === id; })[0];
+      if (!ev) return;
+      confirmDialog("删除工作", "确定删除「" + ev.title + "」？", "删除", true, function () {
+        data.events = data.events.filter(function (e) { return e.id !== id; });
+        saveData();
+        closeSheet();
+        render();
+      });
+    }
+
+    function deleteCompany(id) {
+      const co = companyById(id);
+      if (!co) return;
+      const count = data.events.filter(function (e) { return e.companyId === id; }).length;
+      const msg = count
+        ? "删除「" + co.name + "」将同时删除其 " + count + " 条工作，确定吗？"
+        : "确定删除公司「" + co.name + "」？";
+      confirmDialog("删除公司", msg, "删除", true, function () {
+        data.companies = data.companies.filter(function (c) { return c.id !== id; });
+        data.events = data.events.filter(function (e) { return e.companyId !== id; });
+        data.hiddenCompanyIds = data.hiddenCompanyIds.filter(function (x) { return x !== id; });
+        saveData();
+        openCompanyManager();
+        render();
+      });
+    }
+
+    /* ------------ confirm / toast / backup ------------ */
+    function confirmDialog(title, message, okLabel, danger, cb) {
+      el.confirm.innerHTML = "<h3>" + escapeHtml(title) + "</h3><p>" + escapeHtml(message) + "</p>" +
+        '<div class="actions"><button type="button" data-cancel-confirm>取消</button>' +
+        '<button type="button" class="' + (danger ? "danger" : "primary") + '" data-ok-confirm">' +
+        escapeHtml(okLabel) + "</button></div>";
+      confirmCb = cb;
+      el.confirmBackdrop.classList.add("show");
+      el.confirm.classList.add("show");
+    }
+    function closeConfirm() {
+      el.confirmBackdrop.classList.remove("show");
+      el.confirm.classList.remove("show");
+      confirmCb = null;
+    }
+    function toast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { el.toast.classList.remove("show"); }, 2400);
+    }
+
+    function exportBackup() {
+      const payload = {
+        app: "gongli",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        companies: data.companies,
+        events: data.events,
+        hiddenCompanyIds: data.hiddenCompanyIds
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "工历备份-" + todayISO() + ".json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+      toast("已导出备份文件");
+    }
+
+    function importBackupFile(file) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const parsed = JSON.parse(reader.result);
+          const companies = Array.isArray(parsed.companies) ? parsed.companies.filter(validCompany) : [];
+          const events = Array.isArray(parsed.events) ? parsed.events.filter(validEvent) : [];
+          if (!companies.length && !events.length && !Array.isArray(parsed.companies)) {
+            toast("备份文件格式不对");
+            return;
+          }
+          confirmDialog(
+            "导入备份",
+            "导入将替换当前所有公司和排班数据，确定吗？",
+            "导入",
+            false,
+            function () {
+              data.companies = companies.length ? companies : data.companies;
+              data.events = events;
+              data.hiddenCompanyIds = Array.isArray(parsed.hiddenCompanyIds) ? parsed.hiddenCompanyIds : [];
+              saveData();
+              closeSheet();
+              render();
+              toast("导入完成");
+            }
+          );
+        } catch (err) {
+          toast("无法读取该文件");
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    /* ------------ events binding ------------ */
+    document.getElementById("dow").innerHTML = WEEKDAYS.map(function (w, i) {
+      return '<span class="' + (i === 0 ? "sun" : "") + '">' + w + "</span>";
+    }).join("");
+
+    document.getElementById("btn-prev").addEventListener("click", prevMonth);
+    document.getElementById("btn-next").addEventListener("click", nextMonth);
+    el.btnToday.addEventListener("click", goToday);
+    document.getElementById("btn-menu").addEventListener("click", openSettings);
+    el.fab.addEventListener("click", function () {
+      const date = selectedDate && isSameMonth(selectedDate, viewYear, viewMonth) ? selectedDate : (
+        isSameMonth(todayISO(), viewYear, viewMonth) ? todayISO() : toISODate(new Date(viewYear, viewMonth, 1))
+      );
+      openEventForm({ date: date });
+    });
+
+    el.calendar.addEventListener("click", function (e) {
+      const bar = e.target.closest(".event-bar");
+      if (bar) {
+        const ev = data.events.filter(function (x) { return x.id === bar.getAttribute("data-id"); })[0];
+        if (ev) openEventForm({ event: ev });
+        return;
+      }
+      const cell = e.target.closest(".day-cell");
+      if (cell) openDayList(cell.getAttribute("data-date"));
+    });
+
+    el.legend.addEventListener("click", function (e) {
+      const chip = e.target.closest(".legend-chip");
+      if (!chip) return;
+      const id = chip.getAttribute("data-company");
+      const i = data.hiddenCompanyIds.indexOf(id);
+      if (i === -1) data.hiddenCompanyIds.push(id);
+      else data.hiddenCompanyIds.splice(i, 1);
+      saveData();
+      render();
+    });
+
+    el.backdrop.addEventListener("click", closeSheet);
+    el.confirmBackdrop.addEventListener("click", closeConfirm);
+
+    el.sheet.addEventListener("click", function (e) {
+      if (e.target.closest("[data-close]")) { closeSheet(); return; }
+      if (e.target.closest("[data-back-settings]")) { openSettings(); return; }
+      if (e.target.closest("[data-back-companies]")) { openCompanyManager(); return; }
+      const addOn = e.target.closest("[data-add-on]");
+      if (addOn) { openEventForm({ date: addOn.getAttribute("data-add-on") }); return; }
+      const editEv = e.target.closest("[data-edit-event]");
+      if (editEv) {
+        const ev = data.events.filter(function (x) { return x.id === editEv.getAttribute("data-edit-event"); })[0];
+        if (ev) openEventForm({ event: ev });
+        return;
+      }
+      const delEv = e.target.closest("[data-delete-event]");
+      if (delEv) { deleteEvent(delEv.getAttribute("data-delete-event")); return; }
+      if (e.target.closest("#btn-companies")) { openCompanyManager(); return; }
+      if (e.target.closest("#btn-filter")) { openFilter(); return; }
+      if (e.target.closest("#btn-export")) { exportBackup(); return; }
+      if (e.target.closest("#btn-import")) { el.importFile.click(); return; }
+      if (e.target.closest("#btn-add-company")) { openCompanyForm(null); return; }
+      const editCo = e.target.closest("[data-edit-company]");
+      if (editCo) {
+        openCompanyForm(companyById(editCo.getAttribute("data-edit-company")));
+        return;
+      }
+      const delCo = e.target.closest("[data-delete-company]");
+      if (delCo) { deleteCompany(delCo.getAttribute("data-delete-company")); return; }
+      const tog = e.target.closest("[data-toggle-company]");
+      if (tog) {
+        const id = tog.getAttribute("data-toggle-company");
+        const i = data.hiddenCompanyIds.indexOf(id);
+        if (i === -1) data.hiddenCompanyIds.push(id);
+        else data.hiddenCompanyIds.splice(i, 1);
+        saveData();
+        render();
+        openFilter();
+        return;
+      }
+      if (e.target.closest("#btn-show-all")) {
+        data.hiddenCompanyIds = [];
+        saveData();
+        render();
+        openFilter();
+      }
+    });
+
+    el.confirm.addEventListener("click", function (e) {
+      if (e.target.closest("[data-cancel-confirm]")) { closeConfirm(); return; }
+      if (e.target.closest("[data-ok-confirm]")) {
+        const cb = confirmCb;
+        closeConfirm();
+        if (cb) cb();
+      }
+    });
+
+    el.importFile.addEventListener("change", function () {
+      const file = el.importFile.files && el.importFile.files[0];
+      el.importFile.value = "";
+      if (file) importBackupFile(file);
+    });
+
+    /* swipe months */
+    let touchStartX = 0, touchStartY = 0, touching = false;
+    el.calendar.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1 || sheetOpen) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touching = true;
+    }, { passive: true });
+    el.calendar.addEventListener("touchend", function (e) {
+      if (!touching) return;
+      touching = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        if (dx < 0) nextMonth();
+        else prevMonth();
+      }
+    }, { passive: true });
+    el.calendar.addEventListener("touchcancel", function () { touching = false; }, { passive: true });
+
+    window.addEventListener("resize", function () { layoutEventBars(); });
+
+    /* install tip */
+    const isStandalone = window.navigator.standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    if (!isStandalone && !localStorage.getItem(TIP_KEY)) {
+      el.installTip.classList.add("show");
+    }
+    document.getElementById("btn-close-tip").addEventListener("click", function () {
+      el.installTip.classList.remove("show");
+      localStorage.setItem(TIP_KEY, "1");
+      layoutEventBars();
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch(function () {});
+    }
+
+    render();
+  })();
+  </script>
+</body>
+</html>
