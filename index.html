@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="工历">
+  <meta name="apple-mobile-web-app-title" content="Job Calendar">
   <meta name="theme-color" content="#F2F2F7">
-  <meta name="description" content="安装工月历排班，按公司颜色区分工作">
+  <meta name="description" content="Monthly job schedule, colour-coded by company">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
-  <title>工历</title>
+  <title>Job Calendar</title>
   <style>
     :root {
       --header-h: 52px;
@@ -631,7 +631,7 @@
 <body>
   <div id="app">
     <header class="app-header">
-      <button class="icon-btn" id="btn-menu" aria-label="菜单">
+      <button class="icon-btn" id="btn-menu" aria-label="Menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="6" r="1.2" fill="currentColor" stroke="none"/>
           <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
@@ -639,21 +639,21 @@
         </svg>
       </button>
       <div class="nav-title">
-        <button class="chevron" id="btn-prev" aria-label="上个月">‹</button>
-        <h1 id="month-label">2026年11月</h1>
-        <button class="chevron" id="btn-next" aria-label="下个月">›</button>
+        <button class="chevron" id="btn-prev" aria-label="Previous month">‹</button>
+        <h1 id="month-label">November 2026</h1>
+        <button class="chevron" id="btn-next" aria-label="Next month">›</button>
       </div>
-      <button id="btn-today" type="button">今天</button>
+      <button id="btn-today" type="button">Today</button>
     </header>
     <div class="dow" id="dow"></div>
-    <div id="calendar" aria-label="月历"></div>
+    <div id="calendar" aria-label="Calendar"></div>
     <div id="install-tip">
-      <button class="close-tip" id="btn-close-tip" aria-label="关闭">×</button>
-      在 Safari 点底部分享按钮，选择<b>「添加到主屏幕」</b>，即可像 App 一样使用。数据保存在本机。
+      <button class="close-tip" id="btn-close-tip" aria-label="Close">×</button>
+      In Safari, tap the Share button and choose <b>Add to Home Screen</b> to use it like an app. Data is stored on this device.
     </div>
     <div id="legend"></div>
   </div>
-  <button id="fab" aria-label="添加工作">+</button>
+  <button id="fab" aria-label="Add job">+</button>
   <div class="backdrop" id="backdrop"></div>
   <div class="sheet" id="sheet"></div>
   <div class="backdrop" id="confirm-backdrop"></div>
@@ -667,8 +667,10 @@
 
     const STORAGE_KEY = "gongli-v1";
     const TIP_KEY = "gongli-tip-dismissed";
-    const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-    const WEEKDAYS_FULL = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+    const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const WEEKDAYS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const PRESET_COLORS = [
       "#E67E22", "#2F80ED", "#27AE60", "#E84393", "#9B59B6",
       "#E74C3C", "#16A085", "#D35400", "#2980B9", "#8E44AD",
@@ -676,10 +678,10 @@
     ];
     const DEFAULT_COMPANIES = [
       { id: "c-ikea", name: "IKEA", color: "#E67E22" },
-      { id: "c-blue", name: "蓝标", color: "#2F80ED" },
-      { id: "c-green", name: "绿叶", color: "#27AE60" },
-      { id: "c-pink", name: "粉红", color: "#E84393" },
-      { id: "c-purple", name: "紫金", color: "#9B59B6" }
+      { id: "c-blue", name: "Blue Co.", color: "#2F80ED" },
+      { id: "c-green", name: "Green Co.", color: "#27AE60" },
+      { id: "c-pink", name: "Pink Co.", color: "#E84393" },
+      { id: "c-purple", name: "Purple Co.", color: "#9B59B6" }
     ];
 
     const el = {
@@ -780,11 +782,11 @@
     }
     function formatLong(iso) {
       const d = parseISODate(iso);
-      return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 " + WEEKDAYS_FULL[d.getDay()];
+      return WEEKDAYS_FULL[d.getDay()] + ", " + MONTHS[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
     }
     function formatShort(iso) {
       const d = parseISODate(iso);
-      return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+      return MONTHS_SHORT[d.getMonth()] + " " + d.getDate();
     }
     function buildGrid(year, month) {
       const first = new Date(year, month, 1);
@@ -830,7 +832,7 @@
 
     /* ------------ render ------------ */
     function render() {
-      el.monthLabel.textContent = viewYear + "年" + (viewMonth + 1) + "月";
+      el.monthLabel.textContent = MONTHS[viewMonth] + " " + viewYear;
       const t = new Date();
       const onTodayMonth = viewYear === t.getFullYear() && viewMonth === t.getMonth();
       el.btnToday.classList.toggle("hidden", onTodayMonth);
@@ -885,7 +887,7 @@
         const da = daysBetween(a.start, a.end);
         const db = daysBetween(b.start, b.end);
         if (da !== db) return db - da;
-        return (a.title || "").localeCompare(b.title || "", "zh");
+        return (a.title || "").localeCompare(b.title || "", "en");
       });
 
       weeks.forEach(function (weekEl) {
@@ -959,7 +961,7 @@
 
     function renderLegend() {
       if (!data.companies.length) {
-        el.legend.innerHTML = '<span class="empty" style="padding:0">请先添加公司</span>';
+        el.legend.innerHTML = '<span class="empty" style="padding:0">Add a company first</span>';
         return;
       }
       el.legend.innerHTML = data.companies.map(function (c) {
@@ -1012,17 +1014,17 @@
         .filter(function (e) { return e.start <= iso && e.end >= iso && !hidden[e.companyId]; })
         .sort(function (a, b) {
           if (a.start !== b.start) return a.start < b.start ? -1 : 1;
-          return (a.title || "").localeCompare(b.title || "", "zh");
+          return (a.title || "").localeCompare(b.title || "", "en");
         });
       let items = "";
       if (!list.length) {
-        items = '<div class="empty">这一天还没有工作</div>';
+        items = '<div class="empty">No jobs on this day</div>';
       } else {
         items = '<div class="group">' + list.map(function (e) {
           const co = companyById(e.companyId);
           const color = co ? co.color : "#8E8E93";
           const range = e.start === e.end ? "" : formatShort(e.start) + " – " + formatShort(e.end);
-          const meta = [co ? co.name : "未指定公司", range, e.note].filter(Boolean).join(" · ");
+          const meta = [co ? co.name : "No company", range, e.note].filter(Boolean).join(" · ");
           return '<button type="button" class="event-item" data-edit-event="' + escapeHtml(e.id) + '">' +
             '<span class="stripe" style="background:' + escapeHtml(color) + '"></span>' +
             '<span class="body"><div class="title">' + escapeHtml(e.title) + "</div>" +
@@ -1032,12 +1034,12 @@
       openSheet(
         '<div class="sheet-handle"></div>' +
         '<div class="sheet-head">' +
-          '<button type="button" class="side" data-close>关闭</button>' +
+          '<button type="button" class="side" data-close>Close</button>' +
           "<h2>" + formatLong(iso) + "</h2>" +
           '<span class="side right"></span>' +
         "</div>" +
         items +
-        '<button type="button" class="link-btn" data-add-on="' + iso + '">添加工作</button>'
+        '<button type="button" class="link-btn" data-add-on="' + iso + '">Add job</button>'
       );
     }
 
@@ -1050,7 +1052,7 @@
       const note = ev ? (ev.note || "") : "";
       const companyId = ev ? ev.companyId : (data.companies[0] ? data.companies[0].id : "");
       if (!data.companies.length) {
-        toast("请先在菜单里添加公司");
+        toast("Add a company in the menu first");
         openCompanyManager();
         return;
       }
@@ -1058,31 +1060,31 @@
         const sel = c.id === companyId ? " selected" : "";
         return '<option value="' + escapeHtml(c.id) + '"' + sel + ">" + escapeHtml(c.name) + "</option>";
       }).join("");
-      const delBtn = ev ? '<button type="button" class="link-btn danger" data-delete-event="' + escapeHtml(ev.id) + '">删除工作</button>' : "";
+      const delBtn = ev ? '<button type="button" class="link-btn danger" data-delete-event="' + escapeHtml(ev.id) + '">Delete job</button>' : "";
       openSheet(
         '<div class="sheet-handle"></div>' +
         '<div class="sheet-head">' +
-          '<button type="button" class="side" data-close>取消</button>' +
-          "<h2>" + (ev ? "编辑工作" : "添加工作") + "</h2>" +
-          '<button type="button" class="side right" id="btn-save-event">保存</button>' +
+          '<button type="button" class="side" data-close>Cancel</button>' +
+          "<h2>" + (ev ? "Edit job" : "Add job") + "</h2>" +
+          '<button type="button" class="side right" id="btn-save-event">Save</button>' +
         "</div>" +
         '<div class="group">' +
-          '<label class="row"><span class="label">标题</span>' +
-            '<input type="text" id="f-title" maxlength="80" placeholder="例如 Van-2400、Danny off" value="' + escapeHtml(title) + '">' +
+          '<label class="row"><span class="label">Title</span>' +
+            '<input type="text" id="f-title" maxlength="80" placeholder="e.g. Van-2400, Danny off" value="' + escapeHtml(title) + '">' +
           "</label>" +
-          '<label class="row"><span class="label">公司</span>' +
+          '<label class="row"><span class="label">Company</span>' +
             '<select id="f-company" style="flex:1;border:0;background:transparent;font-size:16px;height:32px;min-width:0">' +
               companyOptions +
             "</select>" +
           "</label>" +
-          '<label class="row"><span class="label">开始</span>' +
+          '<label class="row"><span class="label">Start</span>' +
             '<input type="date" id="f-start" value="' + start + '">' +
           "</label>" +
-          '<label class="row"><span class="label">结束</span>' +
+          '<label class="row"><span class="label">End</span>' +
             '<input type="date" id="f-end" value="' + end + '">' +
           "</label>" +
-          '<label class="row" style="align-items:flex-start"><span class="label" style="padding-top:10px">备注/地址</span>' +
-            '<textarea id="f-note" maxlength="400" placeholder="可选">' + escapeHtml(note) + "</textarea>" +
+          '<label class="row" style="align-items:flex-start"><span class="label" style="padding-top:10px">Note / address</span>' +
+            '<textarea id="f-note" maxlength="400" placeholder="Optional">' + escapeHtml(note) + "</textarea>" +
           "</label>" +
         "</div>" +
         delBtn
@@ -1095,14 +1097,14 @@
       });
       document.getElementById("btn-save-event").addEventListener("click", function () {
         const t = titleInput.value.trim();
-        if (!t) { toast("请填写标题"); titleInput.focus(); return; }
+        if (!t) { toast("Please enter a title"); titleInput.focus(); return; }
         const s = startInput.value;
         let en = endInput.value || s;
-        if (!isISODate(s)) { toast("请选择开始日期"); return; }
-        if (!isISODate(en)) { toast("请选择结束日期"); return; }
+        if (!isISODate(s)) { toast("Please choose a start date"); return; }
+        if (!isISODate(en)) { toast("Please choose an end date"); return; }
         if (en < s) en = s;
         const cid = document.getElementById("f-company").value;
-        if (!companyById(cid)) { toast("请选择公司"); return; }
+        if (!companyById(cid)) { toast("Please choose a company"); return; }
         const noteVal = document.getElementById("f-note").value.trim();
         if (ev) {
           ev.title = t;
@@ -1135,20 +1137,20 @@
       openSheet(
         '<div class="sheet-handle"></div>' +
         '<div class="sheet-head">' +
-          '<button type="button" class="side" data-close>关闭</button>' +
-          "<h2>菜单</h2>" +
+          '<button type="button" class="side" data-close>Close</button>' +
+          "<h2>Menu</h2>" +
           '<span class="side right"></span>' +
         "</div>" +
         '<div class="group">' +
-          '<button type="button" class="row-btn" id="btn-companies"><span class="dot" style="background:#E67E22"></span>公司管理<span class="chev">›</span></button>' +
-          '<button type="button" class="row-btn" id="btn-filter"><span class="dot" style="background:#2F80ED"></span>按公司筛选<span class="chev">›</span></button>' +
+          '<button type="button" class="row-btn" id="btn-companies"><span class="dot" style="background:#E67E22"></span>Companies<span class="chev">›</span></button>' +
+          '<button type="button" class="row-btn" id="btn-filter"><span class="dot" style="background:#2F80ED"></span>Filter by company<span class="chev">›</span></button>' +
         "</div>" +
         '<div class="group">' +
-          '<button type="button" class="row-btn" id="btn-export">导出备份<span class="sub">JSON</span></button>' +
-          '<button type="button" class="row-btn" id="btn-import">导入备份<span class="chev">›</span></button>' +
+          '<button type="button" class="row-btn" id="btn-export">Export backup<span class="sub">JSON</span></button>' +
+          '<button type="button" class="row-btn" id="btn-import">Import backup<span class="chev">›</span></button>' +
         "</div>" +
-        '<p class="hint">数据只保存在这台手机的浏览器里，不会上传。换手机或清缓存前，请先导出备份。上面的 IKEA、蓝标等是示例公司，可随时改名或删除。</p>' +
-        '<p class="hint">添加到主屏幕：用 Safari 打开本页 → 点底部分享 →「添加到主屏幕」。</p>'
+        '<p class="hint">Data is stored only in this phone&#39;s browser and is never uploaded. Export a backup before switching phones or clearing Safari data. The starting companies are examples you can rename or delete.</p>' +
+        '<p class="hint">To add to the Home Screen, open this page in Safari, tap Share, then choose Add to Home Screen.</p>'
       );
     }
 
@@ -1159,24 +1161,24 @@
               '<span class="dot" style="width:16px;height:16px;flex-basis:16px;background:' + escapeHtml(c.color) + '"></span>' +
               '<span class="name">' + escapeHtml(c.name) + '</span><span class="chev">›</span></button>';
           }).join("") + "</div>"
-        : '<div class="empty">还没有公司</div>';
+        : '<div class="empty">No companies yet</div>';
       openSheet(
         '<div class="sheet-handle"></div>' +
         '<div class="sheet-head">' +
-          '<button type="button" class="side" data-back-settings>返回</button>' +
-          "<h2>公司</h2>" +
+          '<button type="button" class="side" data-back-settings>Back</button>' +
+          "<h2>Companies</h2>" +
           '<span class="side right"></span>' +
         "</div>" +
-        '<p class="hint">不同颜色代表不同公司。点一项可修改，也可删除后重新添加自己的公司。</p>' +
+        '<p class="hint">Each colour is a company. Tap one to edit it, or delete it and add your own.</p>' +
         list +
-        '<button type="button" class="link-btn" id="btn-add-company">添加公司</button>'
+        '<button type="button" class="link-btn" id="btn-add-company">Add company</button>'
       );
     }
 
     function openCompanyForm(co) {
       const name = co ? co.name : "";
       const color = co ? co.color : PRESET_COLORS[data.companies.length % PRESET_COLORS.length];
-      const delBtn = co ? '<button type="button" class="link-btn danger" data-delete-company="' + escapeHtml(co.id) + '">删除公司</button>' : "";
+      const delBtn = co ? '<button type="button" class="link-btn danger" data-delete-company="' + escapeHtml(co.id) + '">Delete company</button>' : "";
       const swatches = PRESET_COLORS.map(function (c) {
         return '<button type="button" class="color-swatch' + (c.toLowerCase() === color.toLowerCase() ? " selected" : "") +
           '" data-color="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>';
@@ -1184,17 +1186,17 @@
       openSheet(
         '<div class="sheet-handle"></div>' +
         '<div class="sheet-head">' +
-          '<button type="button" class="side" data-back-companies>取消</button>' +
-          "<h2>" + (co ? "编辑公司" : "添加公司") + "</h2>" +
-          '<button type="button" class="side right" id="btn-save-company">保存</button>' +
+          '<button type="button" class="side" data-back-companies>Cancel</button>' +
+          "<h2>" + (co ? "Edit company" : "Add company") + "</h2>" +
+          '<button type="button" class="side right" id="btn-save-company">Save</button>' +
         "</div>" +
         '<div class="group">' +
-          '<label class="row"><span class="label">名称</span>' +
-            '<input type="text" id="c-name" maxlength="30" placeholder="公司名称" value="' + escapeHtml(name) + '">' +
+          '<label class="row"><span class="label">Name</span>' +
+            '<input type="text" id="c-name" maxlength="30" placeholder="Company name" value="' + escapeHtml(name) + '">' +
           "</label>" +
-          '<div class="row" style="display:block;padding:10px 16px 4px"><span class="label">颜色</span></div>' +
+          '<div class="row" style="display:block;padding:10px 16px 4px"><span class="label">Colour</span></div>' +
           '<div class="color-grid" id="color-grid">' + swatches +
-            '<label class="color-custom" title="自定义颜色"><input type="color" id="c-color-custom" value="' + escapeHtml(color) + '"></label>' +
+            '<label class="color-custom" title="Custom colour"><input type="color" id="c-color-custom" value="' + escapeHtml(color) + '"></label>' +
           "</div>" +
           '<input type="hidden" id="c-color" value="' + escapeHtml(color) + '">' +
         "</div>" +
@@ -1214,7 +1216,7 @@
       });
       document.getElementById("btn-save-company").addEventListener("click", function () {
         const n = document.getElementById("c-name").value.trim();
-        if (!n) { toast("请填写公司名称"); return; }
+        if (!n) { toast("Please enter a company name"); return; }
         const col = colorInput.value || "#E67E22";
         if (co) {
           co.name = n;
@@ -1241,14 +1243,14 @@
       openSheet(
         '<div class="sheet-handle"></div>' +
         '<div class="sheet-head">' +
-          '<button type="button" class="side" data-back-settings>返回</button>' +
-          "<h2>按公司筛选</h2>" +
+          '<button type="button" class="side" data-back-settings>Back</button>' +
+          "<h2>Filter by company</h2>" +
           '<span class="side right"></span>' +
         "</div>" +
-        '<p class="hint">关掉某家公司后，月历里不再显示它的工作。点底部色块也可以快速筛选。</p>' +
-        '<div class="group" style="padding:0;overflow:hidden">' + (rows || '<div class="empty">还没有公司</div>') + "</div>" +
+        '<p class="hint">Turn a company off to hide its jobs. You can also tap the colour chips at the bottom to filter.</p>' +
+        '<div class="group" style="padding:0;overflow:hidden">' + (rows || '<div class="empty">No companies yet</div>') + "</div>" +
         (data.companies.length
-          ? '<button type="button" class="link-btn" id="btn-show-all">全部显示</button>'
+          ? '<button type="button" class="link-btn" id="btn-show-all">Show all</button>'
           : "")
       );
     }
@@ -1256,7 +1258,7 @@
     function deleteEvent(id) {
       const ev = data.events.filter(function (e) { return e.id === id; })[0];
       if (!ev) return;
-      confirmDialog("删除工作", "确定删除「" + ev.title + "」？", "删除", true, function () {
+      confirmDialog("Delete job", "Delete \"" + ev.title + "\"?", "Delete", true, function () {
         data.events = data.events.filter(function (e) { return e.id !== id; });
         saveData();
         closeSheet();
@@ -1269,9 +1271,9 @@
       if (!co) return;
       const count = data.events.filter(function (e) { return e.companyId === id; }).length;
       const msg = count
-        ? "删除「" + co.name + "」将同时删除其 " + count + " 条工作，确定吗？"
-        : "确定删除公司「" + co.name + "」？";
-      confirmDialog("删除公司", msg, "删除", true, function () {
+        ? "Deleting \"" + co.name + "\" will also delete its " + count + " job(s). Continue?"
+        : "Delete company \"" + co.name + "\"?";
+      confirmDialog("Delete company", msg, "Delete", true, function () {
         data.companies = data.companies.filter(function (c) { return c.id !== id; });
         data.events = data.events.filter(function (e) { return e.companyId !== id; });
         data.hiddenCompanyIds = data.hiddenCompanyIds.filter(function (x) { return x !== id; });
@@ -1284,7 +1286,7 @@
     /* ------------ confirm / toast / backup ------------ */
     function confirmDialog(title, message, okLabel, danger, cb) {
       el.confirm.innerHTML = "<h3>" + escapeHtml(title) + "</h3><p>" + escapeHtml(message) + "</p>" +
-        '<div class="actions"><button type="button" data-cancel-confirm>取消</button>' +
+        '<div class="actions"><button type="button" data-cancel-confirm>Cancel</button>' +
         '<button type="button" class="' + (danger ? "danger" : "primary") + '" data-ok-confirm">' +
         escapeHtml(okLabel) + "</button></div>";
       confirmCb = cb;
@@ -1315,11 +1317,11 @@
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "工历备份-" + todayISO() + ".json";
+      a.download = "job-calendar-backup-" + todayISO() + ".json";
       document.body.appendChild(a);
       a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-      toast("已导出备份文件");
+      toast("Backup exported");
     }
 
     function importBackupFile(file) {
@@ -1330,13 +1332,13 @@
           const companies = Array.isArray(parsed.companies) ? parsed.companies.filter(validCompany) : [];
           const events = Array.isArray(parsed.events) ? parsed.events.filter(validEvent) : [];
           if (!companies.length && !events.length && !Array.isArray(parsed.companies)) {
-            toast("备份文件格式不对");
+            toast("Invalid backup file");
             return;
           }
           confirmDialog(
-            "导入备份",
-            "导入将替换当前所有公司和排班数据，确定吗？",
-            "导入",
+            "Import backup",
+            "Importing will replace all current companies and jobs. Continue?",
+            "Import",
             false,
             function () {
               data.companies = companies.length ? companies : data.companies;
@@ -1345,11 +1347,11 @@
               saveData();
               closeSheet();
               render();
-              toast("导入完成");
+              toast("Import complete");
             }
           );
         } catch (err) {
-          toast("无法读取该文件");
+          toast("Could not read the file");
         }
       };
       reader.readAsText(file, "utf-8");

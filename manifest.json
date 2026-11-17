@@ -1,14 +1,14 @@
 {
-  "name": "工历 - 安装排班",
-  "short_name": "工历",
-  "description": "安装工月历排班，按公司颜色区分工作",
+  "name": "Job Calendar",
+  "short_name": "Job Calendar",
+  "description": "Monthly job schedule, colour-coded by company",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F2F2F7",
   "theme_color": "#F2F2F7",
-  "lang": "zh-CN",
+  "lang": "en",
   "icons": [
     {
       "src": "icon-192.png",

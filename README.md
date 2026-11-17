@@ -1,27 +1,17 @@
-# 工历 — 安装排班日历
+# Job Calendar
 
-个人用的月历排班网页 App。不同颜色代表不同公司，支持跨天工作条、按公司筛选，数据只保存在本机浏览器（localStorage），可离线使用。
+A personal month-view job calendar web app. Each colour is a company. Multi-day jobs show as bars, you can filter by company, and data is stored only in the browser (localStorage), so it works offline.
 
-## 在 iPhone 上安装
+## Install on iPhone
 
-1. 用 **Safari** 打开部署后的网址（其他浏览器无法「添加到主屏幕」为独立 App）。
-2. 点底部分享按钮，选择 **「添加到主屏幕」**。
-3. 主屏幕会出现「工历」图标，打开后是全屏独立窗口。
+1. Open the site in **Safari**.
+2. Tap the Share button and choose **Add to Home Screen**.
+3. Open "Job Calendar" from the Home Screen.
 
-数据不会同步到云端。换手机或清理 Safari 数据前，请先在菜单里 **导出备份**。
+Data is not synced. Export a backup from the menu before switching phones or clearing Safari data.
 
-## 使用说明
+## Files
 
-- 左右滑动或点箭头切换月份，点「今天」回到本月。
-- 点右下角 **+** 或点某一天，添加工作（标题、公司、起止日期、备注/地址）。
-- 点色条可编辑或删除工作；跨天工作会连成一条，到周末会换行。
-- 底部色块可筛选要显示的公司。菜单里可管理公司、导出/导入 JSON 备份。
-- 预置的 IKEA、蓝标、绿叶、粉红、紫金是示例公司，可改名、改色或删除。
-
-## 文件
-
-- `index.html` — 页面、样式与逻辑
-- `manifest.json` / `sw.js` — PWA 清单与离线缓存
-- `apple-touch-icon.png`、`icon-192.png`、`icon-512.png` — 图标
-
-也可在电脑上用任意静态服务器打开本目录，例如：`python3 -m http.server 8080`
+- `index.html`: page, styles and logic
+- `manifest.json` / `sw.js`: PWA manifest and offline cache
+- `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`: icons

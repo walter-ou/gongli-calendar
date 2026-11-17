@@ -1,4 +1,4 @@
-const CACHE = "gongli-v1";
+const CACHE = "gongli-v2";
 const ASSETS = [
   "./",
   "./index.html",
