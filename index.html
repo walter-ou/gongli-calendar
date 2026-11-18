@@ -678,6 +678,7 @@
   <div class="confirm" id="confirm"></div>
   <div id="toast"></div>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
+  <input type="file" id="ikea-import-file" accept="application/json,.json" hidden>
 
   <script>
   (function () {
@@ -713,6 +714,7 @@
       toast: document.getElementById("toast"),
       installTip: document.getElementById("install-tip"),
       importFile: document.getElementById("import-file"),
+      ikeaImportFile: document.getElementById("ikea-import-file"),
       confirm: document.getElementById("confirm"),
       confirmBackdrop: document.getElementById("confirm-backdrop"),
       fab: document.getElementById("fab")
@@ -1379,6 +1381,7 @@
         '<div class="group">' +
           '<button type="button" class="row-btn" id="btn-export">Export backup<span class="sub">JSON</span></button>' +
           '<button type="button" class="row-btn" id="btn-import">Import backup<span class="chev">›</span></button>' +
+          '<button type="button" class="row-btn" id="btn-import-ikea">Import IKEA jobs<span class="chev">›</span></button>' +
         "</div>" +
         '<p class="hint">Data is stored only in this phone&#39;s browser and is never uploaded. Export a backup before switching phones or clearing Safari data. The starting companies are examples you can rename or delete.</p>' +
         '<p class="hint">To add to the Home Screen, open this page in Safari, tap Share, then choose Add to Home Screen.</p>'
@@ -1518,7 +1521,7 @@
     function confirmDialog(title, message, okLabel, danger, cb) {
       el.confirm.innerHTML = "<h3>" + escapeHtml(title) + "</h3><p>" + escapeHtml(message) + "</p>" +
         '<div class="actions"><button type="button" data-cancel-confirm>Cancel</button>' +
-        '<button type="button" class="' + (danger ? "danger" : "primary") + '" data-ok-confirm">' +
+        '<button type="button" class="' + (danger ? "danger" : "primary") + '" data-ok-confirm>' +
         escapeHtml(okLabel) + "</button></div>";
       confirmCb = cb;
       el.confirmBackdrop.classList.add("show");
@@ -1588,6 +1591,100 @@
       reader.readAsText(file, "utf-8");
     }
 
+
+    function ensureIkeaCompany() {
+      var i, co = null;
+      for (i = 0; i < data.companies.length; i++) {
+        if ((data.companies[i].name || "").toLowerCase().indexOf("ikea") !== -1) {
+          co = data.companies[i];
+          break;
+        }
+      }
+      if (co) return co;
+      var taken = {};
+      data.companies.forEach(function (c) { taken[c.id] = true; });
+      co = { id: taken["c-ikea"] ? uid("c-") : "c-ikea", name: "IKEA", color: "#E67E22" };
+      data.companies.push(co);
+      return co;
+    }
+
+    function applyIkeaImport(jobs) {
+      var company = ensureIkeaCompany();
+      var added = 0, updated = 0, removed = 0;
+      jobs.forEach(function (j) {
+        if (!j || typeof j.ikeaKey !== "string") return;
+        var key = j.ikeaKey.trim();
+        if (!key) return;
+        var existing = data.events.filter(function (e) { return e.ikeaKey === key; })[0];
+        if (j.removed) {
+          if (existing) {
+            data.events = data.events.filter(function (e) { return e.ikeaKey !== key; });
+            removed += 1;
+          }
+          return;
+        }
+        var title = (typeof j.title === "string" ? j.title : "").trim().slice(0, 80);
+        var start = j.start;
+        var end = j.end;
+        if (!title || !isISODate(start) || !isISODate(end)) return;
+        var s = start <= end ? start : end;
+        var en = start <= end ? end : start;
+        var note = (typeof j.note === "string" ? j.note : "").trim().slice(0, 400);
+        if (existing) {
+          existing.title = title;
+          existing.start = s;
+          existing.end = en;
+          var edited = typeof existing.ikeaNote === "string" ? existing.note !== existing.ikeaNote : (existing.note || "") !== "" && existing.note !== note;
+          if (!edited) existing.note = note;
+          existing.ikeaNote = edited ? existing.ikeaNote : note;
+          existing.companyId = company.id;
+          updated += 1;
+        } else {
+          data.events.push({
+            id: uid("e-"),
+            title: title,
+            companyId: company.id,
+            start: s,
+            end: en,
+            note: note,
+            ikeaNote: note,
+            ikeaKey: key
+          });
+          added += 1;
+        }
+      });
+      saveData();
+      closeSheet();
+      render();
+      toast("Imported " + added + " new, updated " + updated + ", removed " + removed);
+    }
+
+    function importIkeaJobsFile(file) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var parsed = JSON.parse(reader.result);
+          var jobs = parsed && Array.isArray(parsed.jobs) ? parsed.jobs : null;
+          if (!parsed || parsed.type !== "ikea-jobs" || !jobs) {
+            toast("This is not an IKEA jobs file");
+            return;
+          }
+          confirmDialog(
+            "Import IKEA jobs",
+            "Add or update IKEA jobs from this file. Other jobs will not be changed.",
+            "Import",
+            false,
+            function () {
+              applyIkeaImport(jobs);
+            }
+          );
+        } catch (err) {
+          toast("Could not read the file");
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
     /* ------------ events binding ------------ */
     document.getElementById("dow").innerHTML = WEEKDAYS.map(function (w, i) {
       return '<span class="' + (i === 0 ? "sun" : "") + '">' + w + "</span>";
@@ -1647,6 +1744,7 @@
       if (e.target.closest("#btn-filter")) { openFilter(); return; }
       if (e.target.closest("#btn-export")) { exportBackup(); return; }
       if (e.target.closest("#btn-import")) { el.importFile.click(); return; }
+      if (e.target.closest("#btn-import-ikea")) { el.ikeaImportFile.click(); return; }
       if (e.target.closest("#btn-add-company")) { openCompanyForm(null); return; }
       const editCo = e.target.closest("[data-edit-company]");
       if (editCo) {
@@ -1687,6 +1785,11 @@
       const file = el.importFile.files && el.importFile.files[0];
       el.importFile.value = "";
       if (file) importBackupFile(file);
+    });
+    el.ikeaImportFile.addEventListener("change", function () {
+      const file = el.ikeaImportFile.files && el.ikeaImportFile.files[0];
+      el.ikeaImportFile.value = "";
+      if (file) importIkeaJobsFile(file);
     });
 
     el.calendar.addEventListener("scroll", function () {
