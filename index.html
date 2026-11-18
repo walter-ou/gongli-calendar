@@ -32,6 +32,7 @@
       --bar-h: 16px;
       --bar-gap: 2px;
       --overflow-h: 14px;
+      --week-h: 110px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -139,6 +140,8 @@
       align-items: center;
       background: var(--bg);
       padding: 0 0 2px;
+      position: relative;
+      z-index: 3;
     }
     .dow span {
       text-align: center;
@@ -151,22 +154,28 @@
 
     #calendar {
       flex: 1;
-      display: flex;
-      flex-direction: column;
+      display: block;
+      position: relative;
       min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overflow-anchor: none;
+      overscroll-behavior: contain;
       background: #fff;
       border-top: 1px solid var(--line);
       border-bottom: 1px solid var(--line);
       touch-action: pan-y;
+      scrollbar-width: none;
     }
+    #calendar::-webkit-scrollbar { display: none; }
     .week {
-      flex: 1;
+      flex: none;
+      height: var(--week-h);
       position: relative;
       display: flex;
       border-bottom: 1px solid var(--line);
-      min-height: 0;
     }
-    .week:last-child { border-bottom: 0; }
     .week-days {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -202,6 +211,15 @@
     }
     .day-num.outside { color: #C7C7CC; font-weight: 500; }
     .day-num.sunday:not(.today):not(.outside) { color: #E05A5A; }
+    .day-num.month-start {
+      width: auto;
+      min-width: 22px;
+      padding: 0 5px;
+      border-radius: 11px;
+      font-size: 11px;
+      letter-spacing: -0.04em;
+      white-space: nowrap;
+    }
     .day-overflow {
       position: absolute;
       bottom: 1px;
@@ -701,11 +719,18 @@
     };
 
     let data = loadData();
-    let viewYear, viewMonth; // month is 0-based
+    let viewYear, viewMonth; // titled month, 0-based
     let selectedDate = null; // YYYY-MM-DD
     let sheetOpen = false;
     let confirmCb = null;
     let toastTimer = null;
+    let rangeStart = null; // Sunday ISO of first rendered week
+    let rangeEnd = null;   // Sunday ISO of last rendered week
+    let extending = false;
+    let titleRaf = 0;
+    const INITIAL_MONTHS = 12;
+    const EXTEND_MONTHS = 6;
+    const EXTEND_WEEKS_THRESHOLD = 8;
 
     const now = new Date();
     viewYear = now.getFullYear();
@@ -788,18 +813,26 @@
       const d = parseISODate(iso);
       return MONTHS_SHORT[d.getMonth()] + " " + d.getDate();
     }
-    function buildGrid(year, month) {
-      const first = new Date(year, month, 1);
-      const last = new Date(year, month + 1, 0);
-      const start = new Date(first);
-      start.setDate(1 - first.getDay());
-      const end = new Date(last);
-      end.setDate(last.getDate() + (6 - last.getDay()));
-      const days = [];
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        days.push(new Date(d.getTime()));
-      }
-      return days;
+    function startOfWeekDate(d) {
+      const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      x.setDate(x.getDate() - x.getDay());
+      return x;
+    }
+    function weekStartISO(d) {
+      return toISODate(startOfWeekDate(d instanceof Date ? d : parseISODate(d)));
+    }
+    function addWeeksISO(sundayISO, n) {
+      return addDaysISO(sundayISO, n * 7);
+    }
+    function weeksBetween(a, b) {
+      return Math.round(daysBetween(a, b) / 7);
+    }
+    function getWeekHeight() {
+      const w = el.calendar.querySelector(".week");
+      if (w && w.offsetHeight) return w.offsetHeight;
+      const raw = getComputedStyle(document.documentElement).getPropertyValue("--week-h");
+      const n = parseFloat(raw);
+      return n > 0 ? n : 110;
     }
 
     /* ------------ helpers ------------ */
@@ -832,44 +865,238 @@
 
     /* ------------ render ------------ */
     function render() {
-      el.monthLabel.textContent = MONTHS[viewMonth] + " " + viewYear;
-      const t = new Date();
-      const onTodayMonth = viewYear === t.getFullYear() && viewMonth === t.getMonth();
-      el.btnToday.classList.toggle("hidden", onTodayMonth);
-      renderCalendar();
       renderLegend();
+      if (!el.calendar.querySelector(".week")) {
+        initCalendar();
+      } else {
+        layoutEventBars();
+        updateSelected();
+        updateMonthTitle();
+      }
     }
 
-    function renderCalendar() {
-      const days = buildGrid(viewYear, viewMonth);
-      const weeks = [];
-      for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+    function initRangeAround(date) {
+      const from = new Date(date.getFullYear(), date.getMonth() - INITIAL_MONTHS, 1);
+      const to = new Date(date.getFullYear(), date.getMonth() + INITIAL_MONTHS + 1, 0);
+      rangeStart = weekStartISO(from);
+      rangeEnd = weekStartISO(to);
+    }
+
+    function weekHTML(sundayISO) {
       const today = todayISO();
+      let html = '<div class="week" data-week-start="' + sundayISO + '">';
+      html += '<div class="week-days">';
+      for (let i = 0; i < 7; i++) {
+        const d = parseISODate(addDaysISO(sundayISO, i));
+        const iso = toISODate(d);
+        const outside = d.getFullYear() !== viewYear || d.getMonth() !== viewMonth;
+        const isFirst = d.getDate() === 1;
+        const cls = ["day-cell"];
+        if (outside) cls.push("outside");
+        if (selectedDate === iso) cls.push("selected");
+        const numCls = ["day-num"];
+        if (iso === today) numCls.push("today");
+        if (outside) numCls.push("outside");
+        if (d.getDay() === 0) numCls.push("sunday");
+        if (isFirst) numCls.push("month-start");
+        const label = isFirst ? MONTHS_SHORT[d.getMonth()] + " " + d.getDate() : String(d.getDate());
+        html += '<div class="' + cls.join(" ") + '" data-date="' + iso + '">';
+        html += '<div class="' + numCls.join(" ") + '">' + label + "</div>";
+        html += '<div class="day-overflow" data-overflow="' + iso + '"></div>';
+        html += "</div>";
+      }
+      html += "</div>";
+      html += '<div class="week-events"></div>';
+      html += "</div>";
+      return html;
+    }
+
+    function paintRange() {
       let html = "";
-      weeks.forEach(function (week, wi) {
-        html += '<div class="week" data-week="' + wi + '">';
-        html += '<div class="week-days">';
-        week.forEach(function (d) {
-          const iso = toISODate(d);
-          const outside = d.getMonth() !== viewMonth;
-          const cls = ["day-cell"];
-          if (outside) cls.push("outside");
-          if (selectedDate === iso) cls.push("selected");
-          const numCls = ["day-num"];
-          if (iso === today) numCls.push("today");
-          if (outside) numCls.push("outside");
-          if (d.getDay() === 0) numCls.push("sunday");
-          html += '<div class="' + cls.join(" ") + '" data-date="' + iso + '">';
-          html += '<div class="' + numCls.join(" ") + '">' + d.getDate() + "</div>";
-          html += '<div class="day-overflow" data-overflow="' + iso + '"></div>';
-          html += "</div>";
-        });
-        html += "</div>";
-        html += '<div class="week-events" data-events-week="' + wi + '"></div>';
-        html += "</div>";
-      });
+      for (let w = rangeStart; w <= rangeEnd; w = addWeeksISO(w, 1)) {
+        html += weekHTML(w);
+      }
       el.calendar.innerHTML = html;
       layoutEventBars();
+    }
+
+    function initCalendar() {
+      const t = new Date();
+      viewYear = t.getFullYear();
+      viewMonth = t.getMonth();
+      el.monthLabel.textContent = MONTHS[viewMonth] + " " + viewYear;
+      initRangeAround(t);
+      paintRange();
+      function place() {
+        scrollToWeek(weekStartISO(t), false);
+        updateMonthTitle();
+      }
+      place();
+      requestAnimationFrame(place);
+    }
+
+    function weekEl(sundayISO) {
+      return el.calendar.querySelector('.week[data-week-start="' + sundayISO + '"]');
+    }
+
+    function ensureWeekInRange(sundayISO) {
+      if (rangeStart && sundayISO >= rangeStart && sundayISO <= rangeEnd) return;
+      if (!rangeStart) {
+        initRangeAround(parseISODate(sundayISO));
+        paintRange();
+        return;
+      }
+      if (sundayISO < rangeStart) {
+        const from = new Date(parseISODate(sundayISO).getFullYear(), parseISODate(sundayISO).getMonth() - EXTEND_MONTHS, 1);
+        prependWeeks(weekStartISO(from));
+      } else if (sundayISO > rangeEnd) {
+        const to = new Date(parseISODate(sundayISO).getFullYear(), parseISODate(sundayISO).getMonth() + EXTEND_MONTHS + 1, 0);
+        appendWeeks(weekStartISO(to));
+      }
+    }
+
+    function prependWeeks(newStart) {
+      if (!newStart || newStart >= rangeStart) return;
+      const weeks = [];
+      for (let w = newStart; w < rangeStart; w = addWeeksISO(w, 1)) weeks.push(w);
+      if (!weeks.length) return;
+      extending = true;
+      const tmp = document.createElement("div");
+      tmp.innerHTML = weeks.map(weekHTML).join("");
+      const frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      const weekH = getWeekHeight();
+      const prevTop = el.calendar.scrollTop;
+      el.calendar.insertBefore(frag, el.calendar.firstChild);
+      rangeStart = newStart;
+      void el.calendar.offsetHeight;
+      el.calendar.scrollTop = prevTop + weeks.length * weekH;
+      layoutEventBars();
+      extending = false;
+    }
+
+    function appendWeeks(newEnd) {
+      if (!newEnd || newEnd <= rangeEnd) return;
+      const weeks = [];
+      for (let w = addWeeksISO(rangeEnd, 1); w <= newEnd; w = addWeeksISO(w, 1)) weeks.push(w);
+      if (!weeks.length) return;
+      extending = true;
+      const tmp = document.createElement("div");
+      tmp.innerHTML = weeks.map(weekHTML).join("");
+      const frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      el.calendar.appendChild(frag);
+      rangeEnd = newEnd;
+      layoutEventBars();
+      extending = false;
+    }
+
+    function maybeExtendRange() {
+      if (extending || !rangeStart) return;
+      const weekH = getWeekHeight();
+      if (!weekH) return;
+      const fromTop = el.calendar.scrollTop / weekH;
+      const fromBottom = (el.calendar.scrollHeight - el.calendar.scrollTop - el.calendar.clientHeight) / weekH;
+      if (fromTop < EXTEND_WEEKS_THRESHOLD) {
+        const edge = parseISODate(rangeStart);
+        prependWeeks(weekStartISO(new Date(edge.getFullYear(), edge.getMonth() - EXTEND_MONTHS, 1)));
+      }
+      if (fromBottom < EXTEND_WEEKS_THRESHOLD) {
+        const edge = parseISODate(rangeEnd);
+        appendWeeks(weekStartISO(new Date(edge.getFullYear(), edge.getMonth() + EXTEND_MONTHS + 1, 0)));
+      }
+    }
+
+    function scrollToWeek(sundayISO, smooth) {
+      ensureWeekInRange(sundayISO);
+      const node = weekEl(sundayISO);
+      if (!node) return;
+      const top = el.calendar.scrollTop + (node.getBoundingClientRect().top - el.calendar.getBoundingClientRect().top);
+      if (smooth && typeof el.calendar.scrollTo === "function") {
+        el.calendar.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      } else {
+        el.calendar.scrollTop = Math.max(0, top);
+        updateMonthTitle();
+      }
+    }
+
+    function updateSelected() {
+      el.calendar.querySelectorAll(".day-cell.selected").forEach(function (c) {
+        c.classList.remove("selected");
+      });
+      if (!selectedDate) return;
+      const cell = el.calendar.querySelector('.day-cell[data-date="' + selectedDate + '"]');
+      if (cell) cell.classList.add("selected");
+    }
+
+    function updateOutsideClasses() {
+      el.calendar.querySelectorAll(".day-cell").forEach(function (cell) {
+        const d = parseISODate(cell.getAttribute("data-date"));
+        const outside = d.getFullYear() !== viewYear || d.getMonth() !== viewMonth;
+        cell.classList.toggle("outside", outside);
+        const num = cell.querySelector(".day-num");
+        if (num) num.classList.toggle("outside", outside);
+      });
+    }
+
+    function monthKeyFromISO(iso) {
+      return iso.slice(0, 7);
+    }
+    function titledMonthFromWeek(weekNode) {
+      const cells = weekNode.querySelectorAll(".day-cell");
+      if (!cells.length) return null;
+      let firstOfMonth = null;
+      const counts = {};
+      for (let i = 0; i < cells.length; i++) {
+        const iso = cells[i].getAttribute("data-date");
+        const key = monthKeyFromISO(iso);
+        counts[key] = (counts[key] || 0) + 1;
+        if (iso.slice(-2) === "01") firstOfMonth = key;
+      }
+      if (firstOfMonth) return firstOfMonth;
+      let best = null, bestCount = -1;
+      Object.keys(counts).forEach(function (key) {
+        if (counts[key] > bestCount) { bestCount = counts[key]; best = key; }
+      });
+      return best;
+    }
+    function updateMonthTitle() {
+      const calRect = el.calendar.getBoundingClientRect();
+      if (calRect.height <= 0) return;
+      const weekH = getWeekHeight();
+      const probeY = calRect.top + Math.min(weekH * 0.35, Math.max(8, calRect.height * 0.15));
+      const weeks = el.calendar.querySelectorAll(".week");
+      let probeWeek = null;
+      for (let i = 0; i < weeks.length; i++) {
+        const r = weeks[i].getBoundingClientRect();
+        if (r.bottom > probeY && r.top <= probeY) { probeWeek = weeks[i]; break; }
+      }
+      if (!probeWeek) {
+        for (let i = 0; i < weeks.length; i++) {
+          const r = weeks[i].getBoundingClientRect();
+          if (r.bottom > calRect.top && r.top < calRect.bottom) { probeWeek = weeks[i]; break; }
+        }
+      }
+      const best = probeWeek ? titledMonthFromWeek(probeWeek) : null;
+      if (!best) return;
+      const y = parseInt(best.slice(0, 4), 10);
+      const m = parseInt(best.slice(5, 7), 10) - 1;
+      if (y !== viewYear || m !== viewMonth) {
+        viewYear = y;
+        viewMonth = m;
+        el.monthLabel.textContent = MONTHS[m] + " " + y;
+        updateOutsideClasses();
+      } else if (!el.monthLabel.textContent) {
+        el.monthLabel.textContent = MONTHS[m] + " " + y;
+      }
+      const todayWeek = weekEl(weekStartISO(new Date()));
+      let hideToday = false;
+      if (todayWeek) {
+        const r = todayWeek.getBoundingClientRect();
+        const dist = r.top - calRect.top;
+        hideToday = dist >= -8 && dist < 24;
+      }
+      el.btnToday.classList.toggle("hidden", hideToday);
     }
 
     function layoutEventBars() {
@@ -974,21 +1201,25 @@
 
     /* ------------ navigation ------------ */
     function prevMonth() {
-      if (viewMonth === 0) { viewYear--; viewMonth = 11; }
-      else viewMonth--;
-      render();
+      const first = new Date(viewYear, viewMonth - 1, 1);
+      viewYear = first.getFullYear();
+      viewMonth = first.getMonth();
+      el.monthLabel.textContent = MONTHS[viewMonth] + " " + viewYear;
+      updateOutsideClasses();
+      scrollToWeek(weekStartISO(first), false);
     }
     function nextMonth() {
-      if (viewMonth === 11) { viewYear++; viewMonth = 0; }
-      else viewMonth++;
-      render();
+      const first = new Date(viewYear, viewMonth + 1, 1);
+      viewYear = first.getFullYear();
+      viewMonth = first.getMonth();
+      el.monthLabel.textContent = MONTHS[viewMonth] + " " + viewYear;
+      updateOutsideClasses();
+      scrollToWeek(weekStartISO(first), false);
     }
     function goToday() {
-      const t = new Date();
-      viewYear = t.getFullYear();
-      viewMonth = t.getMonth();
       selectedDate = todayISO();
-      render();
+      updateSelected();
+      scrollToWeek(weekStartISO(new Date()), true);
     }
 
     /* ------------ sheets ------------ */
@@ -1007,7 +1238,7 @@
 
     function openDayList(iso) {
       selectedDate = iso;
-      render();
+      updateSelected();
       const hidden = {};
       data.hiddenCompanyIds.forEach(function (id) { hidden[id] = true; });
       const list = data.events
@@ -1125,10 +1356,10 @@
         saveData();
         selectedDate = s;
         const sd = parseISODate(s);
-        viewYear = sd.getFullYear();
-        viewMonth = sd.getMonth();
         closeSheet();
-        render();
+        layoutEventBars();
+        updateSelected();
+        scrollToWeek(weekStartISO(sd), true);
       });
       setTimeout(function () { titleInput.focus(); }, 320);
     }
@@ -1227,7 +1458,7 @@
         saveData();
         openCompanyManager();
         renderLegend();
-        renderCalendar();
+        layoutEventBars();
       });
       setTimeout(function () { document.getElementById("c-name").focus(); }, 320);
     }
@@ -1458,28 +1689,19 @@
       if (file) importBackupFile(file);
     });
 
-    /* swipe months */
-    let touchStartX = 0, touchStartY = 0, touching = false;
-    el.calendar.addEventListener("touchstart", function (e) {
-      if (e.touches.length !== 1 || sheetOpen) return;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      touching = true;
+    el.calendar.addEventListener("scroll", function () {
+      if (titleRaf) return;
+      titleRaf = requestAnimationFrame(function () {
+        titleRaf = 0;
+        updateMonthTitle();
+        maybeExtendRange();
+      });
     }, { passive: true });
-    el.calendar.addEventListener("touchend", function (e) {
-      if (!touching) return;
-      touching = false;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - touchStartX;
-      const dy = t.clientY - touchStartY;
-      if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-        if (dx < 0) nextMonth();
-        else prevMonth();
-      }
-    }, { passive: true });
-    el.calendar.addEventListener("touchcancel", function () { touching = false; }, { passive: true });
 
-    window.addEventListener("resize", function () { layoutEventBars(); });
+    window.addEventListener("resize", function () {
+      layoutEventBars();
+      updateMonthTitle();
+    });
 
     /* install tip */
     const isStandalone = window.navigator.standalone === true ||

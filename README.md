@@ -1,6 +1,6 @@
 # Job Calendar
 
-A personal month-view job calendar web app. Each colour is a company. Multi-day jobs show as bars, you can filter by company, and data is stored only in the browser (localStorage), so it works offline.
+A personal job calendar web app with a continuously scrolling week list, like a month calendar you can flick through. Each colour is a company. Multi-day jobs show as bars, you can filter by company, and data is stored only in the browser (localStorage), so it works offline.
 
 ## Install on iPhone
 
